@@ -1,3 +1,5 @@
+import { getGeminiService, isGeminiInitialized, TranslationVariant } from '@/services/gemini';
+import { speechService } from '@/services/speech';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { useRouter } from 'expo-router';
@@ -9,12 +11,9 @@ import {
     ScrollView,
     StyleSheet,
     Text,
-    TextInput,
     TouchableOpacity,
-    View,
+    View
 } from 'react-native';
-// import { speechService } from '@/services/speech';  // ← 일단 주석 처리
-import { getGeminiService, isGeminiInitialized, TranslationVariant } from '@/services/gemini';
 
 export default function CommentWriterScreen() {
   const router = useRouter();
@@ -44,23 +43,39 @@ export default function CommentWriterScreen() {
     }
   }, []);
 
-  // ✅ 음성 인식 대신 텍스트 입력 사용 (임시)
+  // 음성 인식 시작
   const startListening = async () => {
-    Alert.alert(
-      '텍스트 입력',
-      '음성 인식은 아직 설정 중입니다.\n지금은 텍스트로 입력해주세요.',
-      [{ text: '확인' }]
-    );
+    try {
+      setIsListening(true);
+      await speechService.startRecognition(
+        'ko-KR',
+        (result) => {
+          if (result.isFinal) {
+            setRecognizedText(result.text);
+            setIsListening(false);
+          }
+        },
+        (error) => {
+          Alert.alert('오류', '음성 인식에 실패했습니다: ' + error.message);
+          setIsListening(false);
+        }
+      );
+    } catch (error: any) {
+      Alert.alert('오류', '음성 인식을 시작할 수 없습니다: ' + error.message);
+      setIsListening(false);
+    }
   };
 
+  // 음성 인식 중지
   const stopListening = async () => {
+    await speechService.stopRecognition();
     setIsListening(false);
   };
 
   // 번역 시작
   const startTranslation = async () => {
     if (!recognizedText.trim()) {
-      Alert.alert('알림', '먼저 텍스트를 입력해주세요');
+      Alert.alert('알림', '먼저 음성을 입력해주세요');
       return;
     }
 
@@ -90,6 +105,7 @@ export default function CommentWriterScreen() {
     setSelectedIndex(index);
     const selectedText = translations[index].text;
     
+    // 클립보드 복사 (최신 API)
     await Clipboard.setStringAsync(selectedText);
     
     Alert.alert(
@@ -99,6 +115,7 @@ export default function CommentWriterScreen() {
         {
           text: '확인',
           onPress: () => {
+            // 초기화
             setTimeout(() => {
               setRecognizedText('');
               setTranslations([]);
@@ -117,6 +134,13 @@ export default function CommentWriterScreen() {
     setSelectedIndex(null);
   };
 
+  // 정리 (메모리 관리)
+  useEffect(() => {
+    return () => {
+      speechService.destroy();
+    };
+  }, []);
+
   return (
     <SafeAreaView style={styles.container}>
       {/* 헤더 */}
@@ -134,24 +158,31 @@ export default function CommentWriterScreen() {
         style={styles.content} 
         contentContainerStyle={styles.contentContainer}
       >
-        {/* Step 1: 텍스트 입력 (임시) */}
+        {/* Step 1: 음성 입력 */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>1. 한글로 입력하세요 ✍️</Text>
+          <Text style={styles.sectionTitle}>1. 한글로 말씀하세요 🎤</Text>
           
-          {/* ✅ 텍스트 입력 */}
-          <TextInput
-            style={styles.textInput}
-            placeholder="여기에 한글로 입력하세요"
-            placeholderTextColor="#666"
-            value={recognizedText}
-            onChangeText={setRecognizedText}
-            multiline
-            numberOfLines={4}
-          />
+          <TouchableOpacity
+            style={[styles.micButton, isListening && styles.micButtonActive]}
+            onPress={isListening ? stopListening : startListening}
+            disabled={isTranslating}
+          >
+            <Ionicons
+              name={isListening ? 'stop-circle' : 'mic'}
+              size={60}
+              color="#fff"
+            />
+            <Text style={styles.micButtonText}>
+              {isListening ? '🎙️ 듣는 중...' : '탭하여 말하기'}
+            </Text>
+          </TouchableOpacity>
 
-          <Text style={styles.helperText}>
-            💡 음성 인식 기능은 아직 설정 중입니다
-          </Text>
+          {recognizedText && (
+            <View style={styles.recognizedBox}>
+              <Text style={styles.recognizedLabel}>인식된 텍스트:</Text>
+              <Text style={styles.recognizedText}>{recognizedText}</Text>
+            </View>
+          )}
         </View>
 
         {/* Step 2: 번역하기 */}
@@ -265,23 +296,38 @@ const styles = StyleSheet.create({
     color: '#fff',
     marginBottom: 16,
   },
-  // ✅ 텍스트 입력 스타일 추가
-  textInput: {
+  micButton: {
+    backgroundColor: '#e91e63',
+    borderRadius: 20,
+    padding: 40,
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  micButtonActive: {
+    backgroundColor: '#c2185b',
+  },
+  micButtonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
+    marginTop: 12,
+  },
+  recognizedBox: {
     backgroundColor: '#16213e',
     borderRadius: 12,
     padding: 16,
-    color: '#fff',
-    fontSize: 18,
-    minHeight: 120,
-    textAlignVertical: 'top',
-    borderWidth: 2,
-    borderColor: '#4CAF50',
+    borderLeftWidth: 4,
+    borderLeftColor: '#4CAF50',
   },
-  helperText: {
-    marginTop: 12,
+  recognizedLabel: {
     fontSize: 14,
     color: '#aaa',
-    textAlign: 'center',
+    marginBottom: 8,
+  },
+  recognizedText: {
+    fontSize: 20,
+    color: '#fff',
+    lineHeight: 30,
   },
   translateButton: {
     backgroundColor: '#2196F3',
