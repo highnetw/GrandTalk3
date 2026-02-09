@@ -1,5 +1,3 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
-
 // API 키
 const GEMINI_API_KEY = "AIzaSyBF0UpNGwzvMvQ3hOAhVkzNtxrY1SAEdmA";
 
@@ -9,65 +7,60 @@ export interface TranslationVariant {
 }
 
 export class GeminiService {
-  private genAI: GoogleGenerativeAI;
-  private model: any;
+  private apiKey: string;
 
   constructor(apiKey: string) {
-    console.log('🔧 Gemini 초기화...');
-    this.genAI = new GoogleGenerativeAI(apiKey);
-    
-    // ✅ v1 API 사용 (v1beta가 아님)
-    this.model = this.genAI.getGenerativeModel({ 
-      model: 'gemini-pro'  
-    });
-    
-    console.log('✅ 모델: gemini-pro');
+    console.log('🔧 Gemini 초기화 (REST API)');
+    this.apiKey = apiKey;
+    console.log('✅ 준비 완료');
   }
 
   async translateToEnglish(koreanText: string): Promise<TranslationVariant[]> {
     try {
       console.log('🌐 번역 시작:', koreanText);
 
-      const prompt = `Translate this Korean to English for an 11-year-old grandson's blog:
-
-"${koreanText}"
-
-Give exactly 3 different styles. Reply ONLY with JSON, no other text:
-
-{"translations":[{"style":"Friendly","text":"translation 1"},{"style":"Warm","text":"translation 2"},{"style":"Fun","text":"translation 3"}]}`;
-
-      console.log('📤 API 호출...');
+      const prompt = `Translate to English: ${koreanText}`;
       
-      const result = await this.model.generateContent(prompt);
-      const response = result.response;
-      const text = response.text();
-      
-      console.log('📥 응답:', text);
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${this.apiKey}`;
+      console.log('🔗 요청 URL:', url);
 
-      let cleaned = text.trim()
-        .replace(/```json/g, '')
-        .replace(/```/g, '')
-        .trim();
+      console.log('📤 REST API 호출...');
       
-      const parsed = JSON.parse(cleaned);
-      
-      if (parsed.translations && parsed.translations.length >= 3) {
-        console.log('✅ 번역 성공!');
-        
-        // 한국어 스타일명으로 변경
-        return [
-          { style: '친근한', text: parsed.translations[0].text },
-          { style: '따뜻한', text: parsed.translations[1].text },
-          { style: '재미있는', text: parsed.translations[2].text }
-        ];
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{ text: prompt }]
+          }]
+        })
+      });
+
+      console.log('📡 응답 상태:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.log('❌ 에러 응답:', errorText);
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
-      
-      throw new Error('JSON 파싱 실패');
+
+      const data = await response.json();
+      console.log('📥 응답 데이터:', data);
+
+      const text = data.candidates[0].content.parts[0].text;
+      console.log('✅ 번역 결과:', text);
+
+      return [
+        { style: '친근한', text: text },
+        { style: '따뜻한', text: text },
+        { style: '재미있는', text: text }
+      ];
       
     } catch (error: any) {
       console.error('❌ 번역 실패:', error.message);
       
-      // 심플한 폴백
       return [
         { style: '친근한', text: 'Hey! Great job! 😊' },
         { style: '따뜻한', text: "I'm so proud of you! ❤️" },
@@ -97,7 +90,7 @@ export const isGeminiInitialized = (): boolean => {
 };
 
 // 자동 초기화
-if (GEMINI_API_KEY) {
+if (GEMINI_API_KEY && !geminiService) {
   console.log('🚀 자동 초기화');
   initGeminiService(GEMINI_API_KEY);
 }
