@@ -5,14 +5,14 @@ import * as Clipboard from 'expo-clipboard';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
 export default function CommentWriterScreen() {
@@ -91,7 +91,7 @@ export default function CommentWriterScreen() {
 
       const gemini = getGeminiService();
       const results = await gemini.translateToEnglish(recognizedText);
-      
+
       setTranslations(results);
     } catch (error: any) {
       Alert.alert('오류', error.message || '번역에 실패했습니다');
@@ -104,10 +104,10 @@ export default function CommentWriterScreen() {
   const selectAndCopy = async (index: number) => {
     setSelectedIndex(index);
     const selectedText = translations[index].text;
-    
+
     // 클립보드 복사 (최신 API)
     await Clipboard.setStringAsync(selectedText);
-    
+
     Alert.alert(
       '복사 완료! 📋',
       '클립보드에 복사되었습니다.\n블로그에 붙여넣기 하세요!',
@@ -135,9 +135,13 @@ export default function CommentWriterScreen() {
   };
 
   // 정리 (메모리 관리)
+  // 수정 후 (안전한 방식)
   useEffect(() => {
     return () => {
-      speechService.destroy();
+      // speechService가 존재하고 destroy 함수가 있을 때만 실행
+      if (speechService && typeof speechService.destroy === 'function') {
+        speechService.destroy();
+      }
     };
   }, []);
 
@@ -154,14 +158,14 @@ export default function CommentWriterScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView 
-        style={styles.content} 
+      <ScrollView
+        style={styles.content}
         contentContainerStyle={styles.contentContainer}
       >
         {/* Step 1: 음성 입력 */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>1. 한글로 말씀하세요 🎤</Text>
-          
+
           <TouchableOpacity
             style={[styles.micButton, isListening && styles.micButtonActive]}
             onPress={isListening ? stopListening : startListening}
@@ -213,7 +217,7 @@ export default function CommentWriterScreen() {
         {translations.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>3. 마음에 드는 번역을 선택하세요 ✨</Text>
-            
+
             {translations.map((variant, index) => (
               <TouchableOpacity
                 key={index}
