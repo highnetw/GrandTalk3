@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // 1. [검증 완료] 브라우저 테스트에 성공한 그 키를 여기에 넣으세요.
-const MY_SECRET_KEY = "REDACTED_API_KEY";
+const MY_SECRET_KEY = "여기에 API 키 일벽";
 
 export interface TranslationVariant {
   text: string;
