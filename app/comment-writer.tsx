@@ -2,10 +2,11 @@ import { getGeminiService, isGeminiInitialized, TranslationVariant } from '@/ser
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Keyboard,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -17,6 +18,7 @@ import {
 
 export default function CommentWriterScreen() {
   const router = useRouter();
+  const inputRef = useRef<TextInput>(null);
   const [recognizedText, setRecognizedText] = useState('');
   const [isTranslating, setIsTranslating] = useState(false);
   const [translations, setTranslations] = useState<TranslationVariant[]>([]);
@@ -35,13 +37,22 @@ export default function CommentWriterScreen() {
     }
   }, []);
 
+  const handleMicPress = () => {
+    setRecognizedText('');
+    setTranslations([]);
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 100);
+  };
+
   const startTranslation = async () => {
     if (!recognizedText.trim()) {
-      Alert.alert('알림', '먼저 한글 댓글을 입력해주세요');
+      Alert.alert('알림', '한글 내용을 입력하거나 말씀해 주세요.');
       return;
     }
 
     try {
+      Keyboard.dismiss();
       setIsTranslating(true);
       setTranslations([]);
       setSelectedIndex(null);
@@ -63,7 +74,7 @@ export default function CommentWriterScreen() {
 
     Alert.alert(
       '복사 완료! 📋',
-      '클립보드에 복사되었습니다.\n손자 블로그에 붙여넣기 하세요!',
+      '클립보드에 복사되었습니다.',
       [{ text: '확인' }]
     );
   };
@@ -76,6 +87,7 @@ export default function CommentWriterScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* 헤더 */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={28} color="#fff" />
@@ -87,19 +99,31 @@ export default function CommentWriterScreen() {
       </View>
 
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
+        
+        {/* 마이크 버튼 섹션: 안내 문구 삭제하고 버튼만 깔끔하게 배치 */}
+        <View style={styles.micSection}>
+          <TouchableOpacity style={styles.bigMicButton} onPress={handleMicPress}>
+            <Ionicons name="mic" size={50} color="#fff" />
+          </TouchableOpacity>
+        </View>
+
+        {/* 입력 섹션 */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>1. 한글로 입력하세요 ✍️</Text>
+          <Text style={styles.sectionTitle}>한글 입력</Text>
           <TextInput
+            ref={inputRef}
             style={styles.textInput}
-            placeholder="예: 손자야 오늘 운동회 하느라 수고 많았어!"
+            placeholder="마이크 버튼을 누르거나 직접 입력하세요"
             placeholderTextColor="#666"
             value={recognizedText}
             onChangeText={setRecognizedText}
             multiline
             numberOfLines={4}
+            showSoftInputOnFocus={true}
           />
         </View>
 
+        {/* 번역 실행 버튼 */}
         {recognizedText.trim().length > 0 && !isTranslating && translations.length === 0 && (
           <View style={styles.section}>
             <TouchableOpacity style={styles.translateButton} onPress={startTranslation}>
@@ -109,16 +133,18 @@ export default function CommentWriterScreen() {
           </View>
         )}
 
+        {/* 로딩 표시 */}
         {isTranslating && (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#e91e63" />
-            <Text style={styles.loadingText}>AI가 손자가 좋아할 표현으로{'\n'}번역하고 있습니다...</Text>
+            <Text style={styles.loadingText}>AI 번역 중...</Text>
           </View>
         )}
 
+        {/* 번역 결과 */}
         {translations.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>3. 마음에 드는 표현을 선택하세요 ✨</Text>
+            <Text style={styles.sectionTitle}>번역 결과 (탭하여 복사)</Text>
             {translations.map((variant, index) => (
               <TouchableOpacity
                 key={index}
@@ -129,14 +155,10 @@ export default function CommentWriterScreen() {
                 onPress={() => selectAndCopy(index)}
               >
                 <View style={styles.translationHeader}>
-                  <Text style={styles.translationStyle}>{variant.style} 스타일</Text>
+                  <Text style={styles.translationStyle}>{variant.style}</Text>
                   {selectedIndex === index && <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />}
                 </View>
                 <Text style={styles.translationText}>{variant.text}</Text>
-                <View style={styles.translationFooter}>
-                  <Ionicons name="copy-outline" size={16} color="#aaa" />
-                  <Text style={styles.translationFooterText}>탭하여 복사하기</Text>
-                </View>
               </TouchableOpacity>
             ))}
           </View>
@@ -154,18 +176,64 @@ const styles = StyleSheet.create({
   resetButton: { padding: 8 },
   content: { flex: 1 },
   contentContainer: { paddingBottom: 40 },
-  section: { padding: 20 },
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#fff', marginBottom: 16 },
-  textInput: { backgroundColor: '#16213e', borderRadius: 12, padding: 16, color: '#fff', fontSize: 18, minHeight: 120, textAlignVertical: 'top', borderWidth: 2, borderColor: '#4CAF50' },
-  translateButton: { backgroundColor: '#2196F3', borderRadius: 12, padding: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+  
+  micSection: { 
+    alignItems: 'center', 
+    paddingVertical: 30, 
+    backgroundColor: '#16213e', 
+    borderBottomLeftRadius: 25, 
+    borderBottomRightRadius: 25, 
+    marginBottom: 10 
+  },
+  bigMicButton: { 
+    width: 100, 
+    height: 100, 
+    borderRadius: 50, 
+    backgroundColor: '#e91e63', 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    elevation: 8 
+  },
+
+  section: { paddingHorizontal: 20, paddingVertical: 10 },
+  sectionTitle: { fontSize: 16, fontWeight: 'bold', color: '#aaa', marginBottom: 8 },
+  
+  textInput: { 
+    backgroundColor: '#16213e', 
+    borderRadius: 12, 
+    padding: 16, 
+    color: '#fff', 
+    fontSize: 18, 
+    minHeight: 120, 
+    textAlignVertical: 'top', 
+    borderWidth: 1, 
+    borderColor: '#4CAF50' 
+  },
+  
+  translateButton: { 
+    backgroundColor: '#2196F3', 
+    borderRadius: 12, 
+    padding: 18, 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'center',
+    marginTop: 10
+  },
   translateButtonText: { color: '#fff', fontSize: 18, fontWeight: '600', marginLeft: 8 },
+  
   loadingContainer: { padding: 40, alignItems: 'center' },
-  loadingText: { color: '#aaa', fontSize: 16, marginTop: 16, textAlign: 'center' },
-  translationCard: { backgroundColor: '#16213e', borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 2, borderColor: 'transparent' },
+  loadingText: { color: '#aaa', fontSize: 16, marginTop: 16 },
+  
+  translationCard: { 
+    backgroundColor: '#16213e', 
+    borderRadius: 12, 
+    padding: 16, 
+    marginBottom: 12, 
+    borderWidth: 2, 
+    borderColor: 'transparent' 
+  },
   translationCardSelected: { borderColor: '#4CAF50', backgroundColor: '#1a2f1a' },
-  translationHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  translationStyle: { fontSize: 14, color: '#e91e63', fontWeight: '600' },
-  translationText: { fontSize: 18, color: '#fff', lineHeight: 28, marginBottom: 12 },
-  translationFooter: { flexDirection: 'row', alignItems: 'center' },
-  translationFooterText: { fontSize: 12, color: '#aaa', marginLeft: 4 },
+  translationHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  translationStyle: { fontSize: 14, color: '#e91e63', fontWeight: 'bold', textTransform: 'uppercase' },
+  translationText: { fontSize: 18, color: '#fff', lineHeight: 26 },
 });
