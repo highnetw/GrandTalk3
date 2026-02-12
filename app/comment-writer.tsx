@@ -1,4 +1,5 @@
 import { getGeminiService, isGeminiInitialized, TranslationVariant } from '@/services/gemini';
+import { StorageService } from '@/services/StorageService'; // 저장 서비스 추가
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { useRouter } from 'expo-router';
@@ -7,13 +8,15 @@ import {
   ActivityIndicator,
   Alert,
   Keyboard,
+  KeyboardAvoidingView,
+  Platform,
   SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 
 export default function CommentWriterScreen() {
@@ -26,28 +29,16 @@ export default function CommentWriterScreen() {
 
   useEffect(() => {
     if (!isGeminiInitialized()) {
-      Alert.alert(
-        'API 키 필요',
-        'Gemini API 키를 먼저 설정해주세요.',
-        [
-          { text: '설정으로 이동', onPress: () => router.push('/(tabs)/settings') },
-          { text: '취소', onPress: () => router.back() },
-        ]
-      );
+      Alert.alert('API 키 필요', 'Gemini API 키를 먼저 설정해주세요.', [
+        { text: '설정으로 이동', onPress: () => router.push('/(tabs)/settings') },
+        { text: '취소', onPress: () => router.back() },
+      ]);
     }
   }, []);
 
-  const handleMicPress = () => {
-    setRecognizedText('');
-    setTranslations([]);
-    setTimeout(() => {
-      inputRef.current?.focus();
-    }, 100);
-  };
-
   const startTranslation = async () => {
     if (!recognizedText.trim()) {
-      Alert.alert('알림', '한글 내용을 입력하거나 말씀해 주세요.');
+      Alert.alert('알림', '내용을 입력해주세요.');
       return;
     }
 
@@ -55,13 +46,17 @@ export default function CommentWriterScreen() {
       Keyboard.dismiss();
       setIsTranslating(true);
       setTranslations([]);
-      setSelectedIndex(null);
 
       const gemini = getGeminiService();
       const results = await gemini.translateToEnglish(recognizedText);
       setTranslations(results);
+
+      // [중요] 번역 결과를 저장소에 확실히 저장될 때까지 기다립니다.
+      if (results && results.length > 0) {
+        await StorageService.saveChat(recognizedText, results[0].text);
+      }
     } catch (error: any) {
-      Alert.alert('오류', error.message || '번역에 실패했습니다');
+      Alert.alert('오류', '번역 중 문제가 생겼습니다.');
     } finally {
       setIsTranslating(false);
     }
@@ -69,171 +64,113 @@ export default function CommentWriterScreen() {
 
   const selectAndCopy = async (index: number) => {
     setSelectedIndex(index);
-    const selectedText = translations[index].text;
-    await Clipboard.setStringAsync(selectedText);
-
-    Alert.alert(
-      '복사 완료! 📋',
-      '클립보드에 복사되었습니다.',
-      [{ text: '확인' }]
-    );
-  };
-
-  const reset = () => {
-    setRecognizedText('');
-    setTranslations([]);
-    setSelectedIndex(null);
+    await Clipboard.setStringAsync(translations[index].text);
+    Alert.alert('복사 완료! 📋', '클립보드에 저장되었습니다.');
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* 헤더 */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={28} color="#fff" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>댓글 작성 도우미</Text>
-        <TouchableOpacity onPress={reset} style={styles.resetButton}>
-          <Ionicons name="refresh" size={24} color="#fff" />
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
-        
-        {/* 마이크 버튼 섹션: 안내 문구 삭제하고 버튼만 깔끔하게 배치 */}
-        <View style={styles.micSection}>
-          <TouchableOpacity style={styles.bigMicButton} onPress={handleMicPress}>
-            <Ionicons name="mic" size={50} color="#fff" />
+      {/* 1. 키보드 가림 방지를 위한 설정 */}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={28} color="#fff" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>댓글 작성 도우미</Text>
+          <TouchableOpacity onPress={() => { setRecognizedText(''); setTranslations([]); }} style={styles.resetButton}>
+            <Ionicons name="refresh" size={24} color="#fff" />
           </TouchableOpacity>
         </View>
 
-        {/* 입력 섹션 */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>한글 입력</Text>
-          <TextInput
-            ref={inputRef}
-            style={styles.textInput}
-            placeholder="마이크 버튼을 누르거나 직접 입력하세요"
-            placeholderTextColor="#666"
-            value={recognizedText}
-            onChangeText={setRecognizedText}
-            multiline
-            numberOfLines={4}
-            showSoftInputOnFocus={true}
-          />
-        </View>
-
-        {/* 번역 실행 버튼 */}
-        {recognizedText.trim().length > 0 && !isTranslating && translations.length === 0 && (
-          <View style={styles.section}>
-            <TouchableOpacity style={styles.translateButton} onPress={startTranslation}>
-              <Ionicons name="language" size={24} color="#fff" />
-              <Text style={styles.translateButtonText}>영어로 번역하기</Text>
+        <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
+          <View style={styles.micSection}>
+            <TouchableOpacity style={styles.bigMicButton} onPress={() => inputRef.current?.focus()}>
+              <Ionicons name="mic" size={50} color="#fff" />
             </TouchableOpacity>
+            <Text style={styles.micHint}>한글로 말씀하시거나 입력하세요</Text>
           </View>
-        )}
 
-        {/* 로딩 표시 */}
-        {isTranslating && (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#e91e63" />
-            <Text style={styles.loadingText}>AI 번역 중...</Text>
-          </View>
-        )}
-
-        {/* 번역 결과 */}
-        {translations.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>번역 결과 (탭하여 복사)</Text>
-            {translations.map((variant, index) => (
-              <TouchableOpacity
-                key={index}
-                style={[
-                  styles.translationCard,
-                  selectedIndex === index && styles.translationCardSelected,
-                ]}
-                onPress={() => selectAndCopy(index)}
-              >
-                <View style={styles.translationHeader}>
-                  <Text style={styles.translationStyle}>{variant.style}</Text>
-                  {selectedIndex === index && <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />}
-                </View>
-                <Text style={styles.translationText}>{variant.text}</Text>
-              </TouchableOpacity>
-            ))}
+            <View style={styles.inputWrapper}>
+              <TextInput
+                ref={inputRef}
+                style={styles.textInput}
+                placeholder="내용을 입력하세요..."
+                placeholderTextColor="#666"
+                value={recognizedText}
+                onChangeText={setRecognizedText}
+                multiline
+              />
+              {recognizedText.length > 0 && (
+                <TouchableOpacity style={styles.sendButton} onPress={startTranslation}>
+                  <Ionicons name="send" size={28} color="#4CAF50" />
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
-        )}
-      </ScrollView>
+
+          {/* 로딩 표시 - 뱅글뱅글 도는 아이콘 아래에 친절한 문구를 추가했습니다 */}
+          {isTranslating && (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#4CAF50" />
+              <Text style={styles.loadingText}>AI가 번역 중 ...</Text>
+            </View>
+          )}
+
+          {translations.length > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>번역 결과 (탭하여 복사)</Text>
+              {translations.map((variant, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[styles.translationCard, selectedIndex === index && styles.selectedCard]}
+                  onPress={() => selectAndCopy(index)}
+                >
+                  <Text style={styles.variantStyle}>[{variant.style}]</Text>
+                  <Text style={styles.translationText}>{variant.text}</Text>
+                </TouchableOpacity>
+              ))}
+
+              <TouchableOpacity
+                style={styles.homeButton}
+                onPress={() => router.replace('/(tabs)')}
+              >
+                <Ionicons name="home" size={24} color="#fff" />
+                <Text style={styles.homeButtonText}> 완료하고 홈으로 가기</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#1a1a2e' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#16213e' },
-  headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#fff' },
-  backButton: { padding: 8 },
-  resetButton: { padding: 8 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 15, backgroundColor: '#16213e' },
+  headerTitle: { fontSize: 22, fontWeight: 'bold', color: '#fff' },
+  backButton: { padding: 5 },
+  resetButton: { padding: 5 },
   content: { flex: 1 },
   contentContainer: { paddingBottom: 40 },
-  
-  micSection: { 
-    alignItems: 'center', 
-    paddingVertical: 30, 
-    backgroundColor: '#16213e', 
-    borderBottomLeftRadius: 25, 
-    borderBottomRightRadius: 25, 
-    marginBottom: 10 
-  },
-  bigMicButton: { 
-    width: 100, 
-    height: 100, 
-    borderRadius: 50, 
-    backgroundColor: '#e91e63', 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    elevation: 8 
-  },
-
+  micSection: { alignItems: 'center', paddingVertical: 30, backgroundColor: '#16213e', borderBottomLeftRadius: 25, borderBottomRightRadius: 25, marginBottom: 15 },
+  bigMicButton: { width: 90, height: 90, borderRadius: 45, backgroundColor: '#4CAF50', justifyContent: 'center', alignItems: 'center', elevation: 5 },
+  micHint: { color: '#fff', fontSize: 18, marginTop: 10 },
   section: { paddingHorizontal: 20, paddingVertical: 10 },
-  sectionTitle: { fontSize: 16, fontWeight: 'bold', color: '#aaa', marginBottom: 8 },
-  
-  textInput: { 
-    backgroundColor: '#060f2b', 
-    borderRadius: 12, 
-    padding: 16, 
-    color: '#fff', 
-    fontSize: 20, 
-    minHeight: 120, 
-    textAlignVertical: 'top', 
-    borderWidth: 1, 
-    borderColor: '#4CAF50' 
-  },
-  
-  translateButton: { 
-    backgroundColor: '#2196F3', 
-    borderRadius: 12, 
-    padding: 18, 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    justifyContent: 'center',
-    marginTop: 10
-  },
-  translateButtonText: { color: '#fff', fontSize: 18, fontWeight: '600', marginLeft: 8 },
-  
-  loadingContainer: { padding: 40, alignItems: 'center' },
-  loadingText: { color: '#aaa', fontSize: 16, marginTop: 16 },
-  
-  translationCard: { 
-    backgroundColor: '#16213e', 
-    borderRadius: 12, 
-    padding: 16, 
-    marginBottom: 12, 
-    borderWidth: 2, 
-    borderColor: 'transparent' 
-  },
-  translationCardSelected: { borderColor: '#4CAF50', backgroundColor: '#1a2f1a' },
-  translationHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  translationStyle: { fontSize: 16, color: '#e91e63', fontWeight: 'bold', textTransform: 'uppercase' },
-  translationText: { fontSize: 24, color: '#fff', lineHeight: 26 },
+  sectionTitle: { fontSize: 16, color: '#4CAF50', marginBottom: 10, fontWeight: 'bold' },
+  inputWrapper: { flexDirection: 'row', alignItems: 'flex-end', backgroundColor: '#060f2b', borderRadius: 12, borderWidth: 1, borderColor: '#4CAF50' },
+  textInput: { flex: 1, padding: 15, color: '#fff', fontSize: 20, minHeight: 120, textAlignVertical: 'top' },
+  sendButton: { padding: 12 },
+  loadingContainer: { padding: 20, alignItems: 'center' },
+  translationCard: { backgroundColor: '#16213e', borderRadius: 12, padding: 15, marginBottom: 10, borderWidth: 1, borderColor: '#333' },
+  selectedCard: { borderColor: '#4CAF50', backgroundColor: '#1a2f1a' },
+  variantStyle: { color: '#4CAF50', fontSize: 14, fontWeight: 'bold', marginBottom: 5 },
+  translationText: { fontSize: 20, color: '#fff', lineHeight: 28 }, // 폰트 크기 20으로 최적화
+  homeButton: { backgroundColor: '#4a90e2', padding: 18, borderRadius: 12, marginTop: 20, flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
+  homeButtonText: { color: '#fff', fontSize: 20, fontWeight: 'bold', marginLeft: 10 },
 });
