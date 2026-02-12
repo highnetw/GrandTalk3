@@ -65,7 +65,7 @@ export default function HomeScreen() {
         {/* 헤더 */}
         <View style={styles.header}>
           <Text style={styles.title}>GrandTalk</Text>
-          <Text style={styles.subtitle}>손주와 마음을 나누는 대화</Text>
+          <Text style={styles.subtitle}>손주에 보내는 구어체 영어</Text>
         </View>
 
         {/* 메인 컨텐츠 */}
@@ -91,7 +91,7 @@ export default function HomeScreen() {
           {/* 3. 최근 대화 기록 영역 추가 */}
           <View style={styles.historySection}>
             <View style={styles.historyHeader}>
-              <Text style={styles.historyTitle}>📜 최근 대화 기록</Text>
+              <Text style={styles.historyTitle}>📜 최근 번역 기록</Text>
               <TouchableOpacity onPress={loadHistory}>
                 <Ionicons name="refresh-circle" size={30} color="#4CAF50" />
               </TouchableOpacity>
@@ -119,7 +119,7 @@ export default function HomeScreen() {
             <Text style={styles.quickGuideTitle}>💡 사용법</Text>
             <Text style={styles.quickGuideText}>
               1. 위 마이크 버튼을 누르세요.{'\n'}
-              2. 한글로 상준이에게 할 말을 하세요.{'\n'}
+              2. 한글로 할 말을 입력하세요.{'\n'}
               3. AI가 예쁜 영어로 바꿔줍니다!
             </Text>
           </View>
@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
   },
   historyTime: { fontSize: 14, color: '#888', marginBottom: 5 },
   historyKorean: { fontSize: 18, color: '#fff', marginBottom: 5 },
-  historyEnglish: { fontSize: 22, color: '#FFD700', fontWeight: 'bold' },
+  historyEnglish: { fontSize: 20, color: '#eddf90', fontWeight: 'bold' },
   emptyBox: { padding: 20, alignItems: 'center' },
   emptyText: { color: '#888', fontSize: 18 },
 
