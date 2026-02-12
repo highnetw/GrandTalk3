@@ -186,7 +186,7 @@ export default function SettingsScreen() {
             <View style={styles.settingLeft}>
               <Ionicons name="volume-high" size={24} color="#2196F3" />
               <View style={styles.settingText}>
-                <Text style={styles.settingTitle}>음성 읽기 (TTS)</Text>
+                <Text style={styles.settingTitle}>음성 읽기(검토 중)</Text>
                 <Text style={styles.settingDescription}>
                   번역된 텍스트를 음성으로 읽기
                 </Text>
@@ -203,7 +203,7 @@ export default function SettingsScreen() {
             <View style={styles.settingLeft}>
               <Ionicons name="text" size={24} color="#FF9800" />
               <View style={styles.settingText}>
-                <Text style={styles.settingTitle}>큰 글씨</Text>
+                <Text style={styles.settingTitle}>큰 글씨(검토 중)</Text>
                 <Text style={styles.settingDescription}>
                   어르신이 보기 편한 큰 글씨 사용
                 </Text>
@@ -250,7 +250,7 @@ export default function SettingsScreen() {
 
           <TouchableOpacity style={styles.infoItem}>
             <Text style={styles.infoText}>개발자</Text>
-            <Text style={styles.infoValue}>GrandTalk Team</Text>
+            <Text style={styles.infoValue}>Chooyoon Kim</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

@@ -8,14 +8,25 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
+import { ChatHistory, StorageService } from '../../services/StorageService';
 
 export default function HomeScreen() {
   const router = useRouter();
   const [pulseAnim] = useState(new Animated.Value(1));
+  const [history, setHistory] = useState<ChatHistory[]>([]);
+
+  // 1. 기록 불러오기 함수
+  const loadHistory = async () => {
+    const data = await StorageService.getHistory();
+    setHistory(data);
+  };
 
   useEffect(() => {
+    // 앱 켜질 때 기록 로드
+    loadHistory();
+
     // 버튼 펄스 애니메이션
     Animated.loop(
       Animated.sequence([
@@ -33,9 +44,19 @@ export default function HomeScreen() {
     ).start();
   }, []);
 
+  // 2. 기록 목록 각 항목 디자인
+  const renderHistoryItem = ({ item }: { item: ChatHistory }) => (
+    <View style={styles.historyCard}>
+      <Text style={styles.historyTime}>
+        {new Date(item.timestamp).toLocaleDateString()}
+      </Text>
+      <Text style={styles.historyKorean}>🇰🇷 {item.korean}</Text>
+      <Text style={styles.historyEnglish}>🇨🇦 {item.english}</Text>
+    </View>
+  );
+
   return (
     <View style={styles.container}>
-      {/* 1. ScrollView로 전체를 감싸서 가림 현상 방지 */}
       <ScrollView 
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -44,12 +65,12 @@ export default function HomeScreen() {
         {/* 헤더 */}
         <View style={styles.header}>
           <Text style={styles.title}>GrandTalk</Text>
-          <Text style={styles.subtitle}>blog에 영어 댓글 달기</Text>
+          <Text style={styles.subtitle}>손주와 마음을 나누는 대화</Text>
         </View>
 
         {/* 메인 컨텐츠 */}
         <View style={styles.content}>
-          {/* 큰 버튼 */}
+          {/* 큰 버튼 - 누르면 작성 페이지로 이동 */}
           <TouchableOpacity 
             style={styles.micButtonContainer}
             onPress={() => router.push('/comment-writer')}
@@ -62,35 +83,44 @@ export default function HomeScreen() {
                 },
               ]}
             >
-              <Ionicons name="create" size={80} color="#fff" />
+              <Ionicons name="mic" size={80} color="#fff" />
             </Animated.View>
-            <Text style={styles.micButtonText}>탭하여 녹음</Text>
+            <Text style={styles.micButtonText}>탭하여 대화 시작</Text>
           </TouchableOpacity>
 
-          {/* 안내 문구 - 아이콘과 글자 크기 확대 */}
-          <View style={styles.infoBox}>
-            <View style={styles.infoRow}>
-              <Ionicons name="mic" size={30} color="#4CAF50" />
-              <Text style={styles.infoText}>음성인식 후 AI 번역</Text>
+          {/* 3. 최근 대화 기록 영역 추가 */}
+          <View style={styles.historySection}>
+            <View style={styles.historyHeader}>
+              <Text style={styles.historyTitle}>📜 최근 대화 기록</Text>
+              <TouchableOpacity onPress={loadHistory}>
+                <Ionicons name="refresh-circle" size={30} color="#4CAF50" />
+              </TouchableOpacity>
             </View>
-            <View style={styles.infoRow}>
-              <Ionicons name="sparkles" size={30} color="#2196F3" />
-              <Text style={styles.infoText}>3가지 style로 번역</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Ionicons name="copy" size={30} color="#FF9800" />
-              <Text style={styles.infoText}>클립보드에 복사</Text>
-            </View>
+
+            {history.length > 0 ? (
+              history.slice(0, 5).map((item) => ( // 홈화면이니 최근 5개만 먼저 보여줌
+                <View key={item.id} style={styles.historyCard}>
+                  <Text style={styles.historyTime}>
+                    {new Date(item.timestamp).toLocaleDateString()}
+                  </Text>
+                  <Text style={styles.historyKorean}>🇰🇷 {item.korean}</Text>
+                  <Text style={styles.historyEnglish}>🇨🇦 {item.english}</Text>
+                </View>
+              ))
+            ) : (
+              <View style={styles.emptyBox}>
+                <Text style={styles.emptyText}>아직 저장된 대화가 없어요. 😊</Text>
+              </View>
+            )}
           </View>
 
-          {/* 빠른 시작 가이드 */}
+          {/* 빠른 시작 가이드 (기존 유지) */}
           <View style={styles.quickGuide}>
             <Text style={styles.quickGuideTitle}>💡 사용법</Text>
             <Text style={styles.quickGuideText}>
-              1. 마이크 버튼을 누르시고, {'\n'}
-              2. 한글로 말씀하세요^^{'\n'}
-              3. AI가 영어 번역을 해줍니다,{'\n'}
-              4. 3가지 style로 ^^!
+              1. 위 마이크 버튼을 누르세요.{'\n'}
+              2. 한글로 상준이에게 할 말을 하세요.{'\n'}
+              3. AI가 예쁜 영어로 바꿔줍니다!
             </Text>
           </View>
         </View>
@@ -100,16 +130,9 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#131b21',
-  },
-  scrollView: {
-    flex: 1, // 화면 전체를 차지하게 함
-  },
-  scrollContent: {
-    paddingBottom: 120, // 하단 탭 바에 가리지 않게 넉넉한 여백
-  },
+  container: { flex: 1, backgroundColor: '#131b21' },
+  scrollView: { flex: 1 },
+  scrollContent: { paddingBottom: 60 },
   header: {
     paddingTop: Platform.OS === 'ios' ? 60 : 50,
     paddingHorizontal: 20,
@@ -117,81 +140,58 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#16213e',
   },
-  title: {
-    fontSize: 56, // 아주 큰 제목
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 28, // 자막 크게
-    color: '#aaa',
-  },
-  content: {
-    flex: 1,
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 30,
-  },
-  micButtonContainer: {
-    alignItems: 'center',
-    marginBottom: 40,
-  },
+  title: { fontSize: 56, fontWeight: 'bold', color: '#fff' },
+  subtitle: { fontSize: 24, color: '#aaa' },
+  content: { flex: 1, alignItems: 'center', paddingHorizontal: 20, paddingTop: 30 },
+  micButtonContainer: { alignItems: 'center', marginBottom: 40 },
   micButton: {
-    width: 200, // 버튼 크기 확대
-    height: 200,
-    borderRadius: 75,
-    backgroundColor: '#c2dbb4',
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: '#4CAF50', // 녹색 계열로 변경
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#22a05b',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.5,
-    shadowRadius: 16,
     elevation: 12,
+    shadowColor: '#4CAF50',
+    shadowOpacity: 0.5,
+    shadowRadius: 15,
   },
-  micButtonText: {
-    marginTop: 25,
-    fontSize: 30, // 버튼 밑 글씨 크게
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  infoBox: {
-    backgroundColor: '#16213e',
-    borderRadius: 16,
-    padding: 24,
-    width: '100%',
-    maxWidth: 450,
-    marginBottom: 30,
-  },
-  infoRow: {
-    flexDirection: 'row',
+  micButtonText: { marginTop: 20, fontSize: 28, color: '#fff', fontWeight: 'bold' },
+  
+  // 기록 목록 스타일
+  historySection: { width: '100%', marginBottom: 30 },
+  historyHeader: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#4CAF50',
+    paddingBottom: 8
   },
-  infoText: {
-    marginLeft: 15,
-    fontSize: 22, // 안내 텍스트 크게
-    color: '#fff',
+  historyTitle: { fontSize: 24, fontWeight: 'bold', color: '#4CAF50' },
+  historyCard: { 
+    backgroundColor: '#16213e', 
+    borderRadius: 12, 
+    padding: 18, 
+    marginBottom: 12,
+    borderLeftWidth: 5,
+    borderLeftColor: '#4CAF50'
   },
+  historyTime: { fontSize: 14, color: '#888', marginBottom: 5 },
+  historyKorean: { fontSize: 18, color: '#fff', marginBottom: 5 },
+  historyEnglish: { fontSize: 22, color: '#FFD700', fontWeight: 'bold' },
+  emptyBox: { padding: 20, alignItems: 'center' },
+  emptyText: { color: '#888', fontSize: 18 },
+
   quickGuide: {
     backgroundColor: '#0f3460',
     borderRadius: 12,
     padding: 25,
     width: '100%',
-    maxWidth: 450,
     borderLeftWidth: 6,
     borderLeftColor: '#7a4caf',
   },
-  quickGuideTitle: {
-    fontSize: 20, // 사용법 제목 크게
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 15,
-  },
-  quickGuideText: {
-    fontSize: 20, // 사용법 본문 크게
-    color: '#ddd',
-    lineHeight: 32,
-  },
+  quickGuideTitle: { fontSize: 22, fontWeight: 'bold', color: '#fff', marginBottom: 10 },
+  quickGuideText: { fontSize: 20, color: '#ddd', lineHeight: 32 },
 });
