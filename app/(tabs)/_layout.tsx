@@ -10,63 +10,60 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#e91e63',
+        // 활성화된 탭 색상을 할아버지가 좋아하시는 초록색 계열로 변경했습니다.
+        tabBarActiveTintColor: '#4CAF50', 
         tabBarInactiveTintColor: '#666',
         tabBarStyle: {
           backgroundColor: '#16213e',
           borderTopColor: '#2a2a3e',
           borderTopWidth: 1,
-          height: Platform.OS === 'ios' ? 90 : 70 + insets.bottom, // 중요!
-          paddingBottom: Math.max(insets.bottom, 5), // 중요!
+          height: Platform.OS === 'ios' ? 90 : 70 + insets.bottom,
+          paddingBottom: Math.max(insets.bottom, 5),
           paddingTop: 10,
+          // 탭이 하나만 남으므로 탭 바를 숨기고 싶으시면 아래 주석을 해제하세요.
+          // display: 'none', 
         },
         tabBarLabelStyle: {
-          fontSize: 12,
+          fontSize: 14, // 글자 크기를 조금 더 키웠습니다.
           fontWeight: '600',
         },
         headerShown: false,
       }}
     >
+      {/* 1. 홈 탭: 이것만 화면에 나타납니다. */}
       <Tabs.Screen
         name="index"
         options={{
           title: '홈',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home" size={size} color={color} />
+            <Ionicons name="home" size={size + 4} color={color} />
           ),
         }}
       />
+
+      {/* 2. 나머지 탭들: href: null 을 넣어 파일은 두되 화면에서는 숨겼습니다. */}
       <Tabs.Screen
         name="history"
         options={{
-          title: '기록',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="time" size={size} color={color} />
-          ),
+          href: null, // 화면에서 숨김
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
-          title: '설정',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="settings" size={size} color={color} />
-          ),
+          href: null, // 화면에서 숨김
         }}
       />
       <Tabs.Screen
         name="help"
         options={{
-          title: '도움말',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="help-circle" size={size} color={color} />
-          ),
+          href: null, // 화면에서 숨김
         }}
       />
       <Tabs.Screen
         name="explore"
         options={{
-          href: null,
+          href: null, // 화면에서 숨김
         }}
       />
     </Tabs>
