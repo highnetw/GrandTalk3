@@ -24,7 +24,7 @@ export default async function handler(req: any, res: any) {
 
   try {
     const genAI = new GoogleGenerativeAI(SERVER_KEY);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-3.1-flash-lite' });
 
     const prompt = `Translate "${koreanText}" into 3 conversational English styles for my 5th-grade grandson in Canada:
     1. Friendly (casual), 2. Warm (emotional), 3. Fun (energetic).
